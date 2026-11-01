@@ -15,7 +15,7 @@ RUN curl -fsSL https://dot.net/v1/dotnet-install.sh \
 
 # Must match the uid of the runner's host user so the shared work directory
 # stays writable by both.
-RUN useradd -m -u 1003-s /bin/bash github
+RUN useradd -m -u 1003 -s /bin/bash github
 
 ENV DOTNET_CLI_TELEMETRY_OPTOUT=1 DOTNET_NOLOGO=1
 USER github
