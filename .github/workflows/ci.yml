@@ -1,0 +1,98 @@
+name: CI
+
+# Dispatched by the ksp1retooled-automation bot. `run-name` carries the sha and
+# check run id so the bot can find and finalize the run if a job dies.
+run-name: "CI ${{ inputs.sha }} #${{ inputs.check_run_id }}"
+
+on:
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: Commit of KSP1Retooled/ksp1retooled to test
+        required: true
+      check_run_id:
+        description: Check run on that commit that receives the result
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ inputs.sha }}
+  cancel-in-progress: true
+
+jobs:
+  dotnet-tests:
+    name: dotnet tests
+    runs-on: ubuntu-latest
+    environment: ci
+    timeout-minutes: 30
+    steps:
+      - uses: actions/create-github-app-token@v2
+        id: app
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          owner: KSP1Retooled
+          repositories: ksp1retooled
+
+      - uses: actions/checkout@v5
+        with:
+          repository: KSP1Retooled/ksp1retooled
+          ref: ${{ inputs.sha }}
+          token: ${{ steps.app.outputs.token }}
+          sparse-checkout: |
+            Tools
+            dotnet-tools.json
+          persist-credentials: false
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Test
+        run: |
+          status=0
+          for proj in RetooledCli RetooledPatch RetooledLauncher RetooledAnalyzers; do
+            dotnet test "Tools/$proj.Tests" --configuration Release \
+              --logger "trx;LogFileName=$proj.trx" --results-directory results || status=1
+          done
+          exit $status
+
+      - uses: actions/upload-artifact@v5
+        if: always()
+        with:
+          name: dotnet-test-results
+          path: results
+
+  # Required-check gate: reports the overall result onto the private repo's
+  # check run. Must stay `if: always()` and depend on every other job.
+  ci-result:
+    name: ci result
+    if: always()
+    needs: [dotnet-tests]
+    runs-on: ubuntu-latest
+    environment: ci
+    timeout-minutes: 5
+    steps:
+      - uses: actions/create-github-app-token@v2
+        id: app
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          owner: KSP1Retooled
+          repositories: ksp1retooled
+
+      - name: Report
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          conclusion=success
+          for r in $RESULTS; do
+            [ "$r" = success ] || conclusion=failure
+          done
+          [ "$(echo "$RESULTS" | tr ' ' '\n' | grep -c cancelled)" = 0 ] || conclusion=cancelled
+          gh api -X PATCH "repos/KSP1Retooled/ksp1retooled/check-runs/${{ inputs.check_run_id }}" \
+            -f status=completed -f conclusion="$conclusion" -f details_url="$RUN_URL"
