@@ -67,34 +67,20 @@ jobs:
           name: dotnet-test-results
           path: results
 
-  # Required-check gate: reports the overall result onto the private repo's
-  # check run. Must stay `if: always()` and depend on every other job.
+  # The bot mirrors this run's result onto the private repo's check run from
+  # workflow_run events. This job only makes skipped or cancelled needs fail the
+  # run, so it must stay `if: always()` and depend on every other job.
   ci-result:
     name: ci result
     if: always()
     needs: [dotnet-tests]
     runs-on: ubuntu-latest
-    environment: ci
     timeout-minutes: 5
     steps:
-      - uses: actions/create-github-app-token@v2
-        id: app
-        with:
-          app-id: ${{ secrets.APP_ID }}
-          private-key: ${{ secrets.APP_PRIVATE_KEY }}
-          owner: KSP1Retooled
-          repositories: ksp1retooled
-
-      - name: Report
+      - name: All jobs passed
         env:
-          GH_TOKEN: ${{ steps.app.outputs.token }}
           RESULTS: ${{ join(needs.*.result, ' ') }}
-          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
-          conclusion=success
           for r in $RESULTS; do
-            [ "$r" = success ] || conclusion=failure
+            [ "$r" = success ] || { echo "job result: $r"; exit 1; }
           done
-          [ "$(echo "$RESULTS" | tr ' ' '\n' | grep -c cancelled)" = 0 ] || conclusion=cancelled
-          gh api -X PATCH "repos/KSP1Retooled/ksp1retooled/check-runs/${{ inputs.check_run_id }}" \
-            -f status=completed -f conclusion="$conclusion" -f details_url="$RUN_URL"
