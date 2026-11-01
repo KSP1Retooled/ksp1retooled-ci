@@ -43,7 +43,8 @@ jobs:
           token: ${{ steps.app.outputs.token }}
           sparse-checkout: |
             Tools
-            dotnet-tools.json
+            Assets/Code/Retooled
+            Assets/Plugins/Firstpass/Lingoona/Managed
           persist-credentials: false
 
       - uses: actions/setup-dotnet@v5
