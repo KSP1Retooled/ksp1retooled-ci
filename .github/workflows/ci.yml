@@ -66,6 +66,7 @@ jobs:
         with:
           name: dotnet-test-results
           path: results
+          retention-days: 7
 
   # The bot mirrors this run's result onto the private repo's check run from
   # workflow_run events. This job only makes skipped or cancelled needs fail the
