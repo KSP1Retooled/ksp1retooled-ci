@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=KSP Retooled Launcher
+Comment=Install and start KSP Retooled
+Exec=retooled-launcher
+Terminal=false
+Categories=Game;

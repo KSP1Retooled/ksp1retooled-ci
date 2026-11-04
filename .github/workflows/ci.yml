@@ -68,81 +68,13 @@ jobs:
           path: results
           retention-days: 7
 
-  # Native AOT has no cross-OS compilation, so each OS builds on its own runner.
-  # macOS can target either architecture from one runner. Linux builds on the
-  # oldest available image because the binary needs at least that glibc.
-  launcher:
-    name: launcher (${{ matrix.rid }})
-    runs-on: ${{ matrix.os }}
-    environment: ci
-    timeout-minutes: 30
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - { rid: win-x64, os: windows-latest }
-          - { rid: linux-x64, os: ubuntu-22.04 }
-          - { rid: osx-arm64, os: macos-latest }
-          - { rid: osx-x64, os: macos-latest }
-    steps:
-      - uses: actions/create-github-app-token@v2
-        id: app
-        with:
-          app-id: ${{ secrets.APP_ID }}
-          private-key: ${{ secrets.APP_PRIVATE_KEY }}
-          owner: KSP1Retooled
-          repositories: ksp1retooled
-
-      - uses: actions/checkout@v5
-        with:
-          repository: KSP1Retooled/ksp1retooled
-          ref: ${{ inputs.sha }}
-          token: ${{ steps.app.outputs.token }}
-          sparse-checkout: |
-            Tools/RetooledLauncher
-            Tools/RetooledLauncher.Core
-            Tools/RetooledPatch
-          persist-credentials: false
-
-      - uses: actions/setup-dotnet@v5
-        with:
-          dotnet-version: 10.0.x
-
-      - name: Install the AOT toolchain
-        if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y clang zlib1g-dev
-
-      - name: Publish
-        shell: bash
-        run: |
-          dotnet publish Tools/RetooledLauncher --configuration Release             --runtime "${{ matrix.rid }}" -p:PublishAot=true --output out
-
-      # Artifact zips drop the executable bit, so Unix builds go in a tarball.
-      - name: Package
-        shell: bash
-        run: |
-          rm -rf out/*.pdb out/*.dbg out/*.dSYM
-          mkdir artifact
-          case "${{ matrix.rid }}" in
-            win-*) mv out/* artifact/ ;;
-            *) tar -czf "artifact/RetooledLauncher-${{ matrix.rid }}.tar.gz" -C out . ;;
-          esac
-          ls -l artifact
-
-      - uses: actions/upload-artifact@v5
-        with:
-          name: RetooledLauncher-${{ matrix.rid }}
-          path: artifact
-          if-no-files-found: error
-          retention-days: 7
-
   # The bot mirrors this run's result onto the private repo's check run from
   # workflow_run events. This job only makes skipped or cancelled needs fail the
   # run, so it must stay `if: always()` and depend on every other job.
   ci-result:
     name: ci result
     if: always()
-    needs: [dotnet-tests, launcher]
+    needs: [dotnet-tests]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
