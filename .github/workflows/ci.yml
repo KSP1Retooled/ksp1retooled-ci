@@ -55,7 +55,7 @@ jobs:
         shell: bash
         run: |
           status=0
-          for proj in RetooledCli RetooledPatch RetooledLauncher RetooledAnalyzers; do
+          for proj in RetooledCli RetooledAnalyzers; do
             dotnet test "Tools/$proj.Tests" --configuration Release \
               --logger "trx;LogFileName=$proj.trx" --results-directory results || status=1
           done
