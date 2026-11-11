@@ -3,7 +3,7 @@
 FROM ubuntu:24.04
 
 RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-      ca-certificates curl git git-lfs xz-utils unzip \
+      ca-certificates curl git git-lfs xz-utils unzip gh jq \
       libgtk-3-0 libnss3 libasound2t64 libgbm1 libxss1 libglu1-mesa libgl1 libcups2 \
       libxkbcommon0 libxcomposite1 libxdamage1 libxrandr2 libxi6 libxtst6 \
       libvulkan1 libc6-dev libssl3 libicu74 \
